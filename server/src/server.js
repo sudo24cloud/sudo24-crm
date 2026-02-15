@@ -26,38 +26,31 @@ const admissionsRoutes = require("./routes/admissions");
 
 const app = express();
 
-// ✅ Middleware
-app.use(express.json({ limit: "1mb" }));
+/**
+ * ✅ IMPORTANT ORDER
+ * 1) CORS
+ * 2) express.json
+ */
 
-// ✅ CORS (ONLY ONCE)
-const allowedOrigins = [
-  "http://localhost:3000",
-  "https://sudo24-crm-1.onrender.com", // ✅ your frontend URL
-];
-
+// ✅ CORS (temporary open for testing)
 app.use(
   cors({
-    origin: function (origin, callback) {
-      // allow requests with no origin (Postman, server-to-server)
-      if (!origin) return callback(null, true);
-
-      if (allowedOrigins.includes(origin)) {
-        return callback(null, true);
-      } else {
-        return callback(new Error("CORS blocked: " + origin));
-      }
-    },
-    credentials: true,
+    origin: "*",
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
   })
 );
 
-// ✅ Preflight handle (important for login)
+// ✅ Preflight handle (OPTIONS)
 app.options("*", cors());
 
+// ✅ Body parser
+app.use(express.json({ limit: "1mb" }));
+
 // ✅ Health route
-app.get("/", (req, res) => res.json({ ok: true, name: "SUDO24 CRM SaaS API" }));
+app.get("/", (req, res) => {
+  res.json({ ok: true, name: "SUDO24 CRM SaaS API" });
+});
 
 // ✅ API Routes
 app.use("/api/auth", authRoutes);

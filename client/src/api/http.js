@@ -1,6 +1,6 @@
 import axios from "axios";
 
-export const API_BASE = "http://localhost:5000";
+export const API_BASE = "https://sudo24-crm.onrender.com";
 
 export function makeClient(getToken) {
   const client = axios.create({ baseURL: API_BASE });

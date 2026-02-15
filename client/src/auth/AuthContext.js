@@ -12,10 +12,10 @@ export function AuthProvider({ children }) {
     return raw ? JSON.parse(raw) : null;
   });
 
-  // ✅ FIXED AXIOS CLIENT
+  // ✅ PRODUCTION SAFE BASE URL
   const api = useMemo(() => {
     const instance = axios.create({
-      baseURL: "http://localhost:5000",  // 👈 IMPORTANT
+      baseURL: process.env.REACT_APP_API_URL
     });
 
     instance.interceptors.request.use((config) => {
@@ -27,7 +27,7 @@ export function AuthProvider({ children }) {
     });
 
     return instance;
-  }, [token]);
+  }, []);
 
   const login = (data) => {
     setToken(data.token);

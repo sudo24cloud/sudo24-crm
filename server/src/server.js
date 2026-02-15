@@ -18,37 +18,38 @@ const admissionsRoutes = require("./routes/admissions");
 
 const app = express();
 
-/* =============================
-   ✅ PRODUCTION CORS FIX
-============================= */
-
-const allowedOrigins = [
-  "http://localhost:3000",
-  "https://sudo24-crm-fr.onrender.com"
-];
+/* ================================
+   ✅ SIMPLE & SAFE PRODUCTION CORS
+================================ */
 
 app.use(cors({
-  origin: function (origin, callback) {
-    if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error("CORS not allowed"));
-    }
-  },
-  credentials: true
+  origin: true,          // automatically allow requesting origin
+  credentials: true,
 }));
 
-app.use(express.json());
-
+// Handle preflight properly
 app.options("*", cors());
 
-/* =============================
-   ROUTES
-============================= */
+/* ================================
+   MIDDLEWARE
+================================ */
 
-app.get("/", (req, res) =>
-  res.json({ ok: true, name: "SUDO24 CRM SaaS API" })
-);
+app.use(express.json({ limit: "1mb" }));
+
+/* ================================
+   HEALTH CHECK
+================================ */
+
+app.get("/", (req, res) => {
+  res.json({
+    ok: true,
+    message: "SUDO24 CRM SaaS API Running 🚀"
+  });
+});
+
+/* ================================
+   API ROUTES
+================================ */
 
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
@@ -62,20 +63,22 @@ app.use("/api/policies", policyRoutes);
 app.use("/api/reports", reportRoutes);
 app.use("/api/stats", statsRoutes);
 
-/* =============================
+/* ================================
    START SERVER
-============================= */
+================================ */
 
 const PORT = process.env.PORT || 5000;
 
 (async () => {
   try {
     await connectDB(process.env.MONGO_URI);
-    app.listen(PORT, () =>
-      console.log(`✅ API running on port ${PORT}`)
-    );
-  } catch (e) {
-    console.error("❌ Failed to start server", e);
+
+    app.listen(PORT, () => {
+      console.log(`✅ API running on port ${PORT}`);
+    });
+
+  } catch (err) {
+    console.error("❌ Failed to start server", err);
     process.exit(1);
   }
 })();

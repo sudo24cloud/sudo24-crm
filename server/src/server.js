@@ -19,16 +19,11 @@ const admissionsRoutes = require("./routes/admissions");
 const app = express();
 
 /* ================================
-   ✅ SIMPLE & SAFE PRODUCTION CORS
+   🚨 FULL OPEN CORS (TEST MODE)
 ================================ */
 
-app.use(cors({
-  origin: true,          // automatically allow requesting origin
-  credentials: true,
-}));
-
-// Handle preflight properly
-app.options("*", cors());
+app.use(cors());              // 🔥 completely open
+app.options("*", cors());     // 🔥 handle preflight
 
 /* ================================
    MIDDLEWARE

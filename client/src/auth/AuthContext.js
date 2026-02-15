@@ -12,22 +12,33 @@ export function AuthProvider({ children }) {
     return raw ? JSON.parse(raw) : null;
   });
 
-  // ✅ PRODUCTION SAFE BASE URL
+  /* ====================================
+     🔥 AUTO BACKEND URL DETECTION
+  ==================================== */
+
+  const API_URL =
+    process.env.REACT_APP_API_URL ||
+    "https://sudo24-crm-1.onrender.com";  // fallback production
+
   const api = useMemo(() => {
+
     const instance = axios.create({
-      baseURL: process.env.REACT_APP_API_URL
+      baseURL: API_URL,
+      withCredentials: true
     });
 
+    // Attach token automatically
     instance.interceptors.request.use((config) => {
-      const t = localStorage.getItem("token");
-      if (t) {
-        config.headers.Authorization = `Bearer ${t}`;
+      const storedToken = localStorage.getItem("token");
+      if (storedToken) {
+        config.headers.Authorization = `Bearer ${storedToken}`;
       }
       return config;
     });
 
     return instance;
-  }, []);
+
+  }, [API_URL]);
 
   const login = (data) => {
     setToken(data.token);

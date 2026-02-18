@@ -2,8 +2,13 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "../auth/AuthContext";
 
+/** ✅ Best practice: keep base endpoint in one place */
+const LEADS_URL = "/api/leads";
+
 /** ===== Helpers ===== */
-function pad2(n) { return String(n).padStart(2, "0"); }
+function pad2(n) {
+  return String(n).padStart(2, "0");
+}
 
 function formatTimer(ms) {
   const totalSec = Math.max(0, Math.floor(ms / 1000));
@@ -42,10 +47,18 @@ function isToday(date) {
   return d.toDateString() === t.toDateString();
 }
 
-function safeStr(x) { return String(x || "").toLowerCase().trim(); }
+function safeStr(x) {
+  return String(x || "").toLowerCase().trim();
+}
 
 function badgeStyle(type) {
-  const base = { padding: "4px 10px", borderRadius: 999, fontSize: 12, fontWeight: 800, display: "inline-block" };
+  const base = {
+    padding: "4px 10px",
+    borderRadius: 999,
+    fontSize: 12,
+    fontWeight: 800,
+    display: "inline-block",
+  };
   const map = {
     new: { background: "#eef2ff", color: "#1e40af" },
     contacted: { background: "#ecfeff", color: "#155e75" },
@@ -71,7 +84,7 @@ function btnStyle(primary = false) {
     color: primary ? "#fff" : "#111827",
     fontWeight: 900,
     cursor: "pointer",
-    height: 40
+    height: 40,
   };
 }
 
@@ -83,7 +96,7 @@ function inputStyle() {
     padding: "0 12px",
     outline: "none",
     width: "100%",
-    background: "#fff"
+    background: "#fff",
   };
 }
 
@@ -95,7 +108,7 @@ function selectStyle() {
     padding: "0 10px",
     outline: "none",
     width: "100%",
-    background: "#fff"
+    background: "#fff",
   };
 }
 
@@ -121,6 +134,12 @@ function buildWALink(phone, text) {
   if (!p) return "";
   const msg = encodeURIComponent(text || "");
   return `https://wa.me/${p}?text=${msg}`;
+}
+
+/** ✅ URL helpers (keeps endpoint usage consistent everywhere) */
+function leadUrl(id, suffix = "") {
+  const cleanSuffix = suffix ? (suffix.startsWith("/") ? suffix : `/${suffix}`) : "";
+  return `${LEADS_URL}/${id}${cleanSuffix}`;
 }
 
 /** ===== Main Component ===== */
@@ -156,7 +175,7 @@ export default function Leads() {
     batch: "Evening",
     status: "new",
     nextFollowUp: "",
-    note: ""
+    note: "",
   });
 
   // After Call panel
@@ -220,7 +239,7 @@ export default function Leads() {
     setMsg("");
     setLoading(true);
     try {
-      const res = await api.get("/api/leads");
+      const res = await api.get(LEADS_URL);
       setLeads(res.data || []);
     } catch (err) {
       setMsg(err?.response?.data?.message || "Error loading leads");
@@ -239,7 +258,7 @@ export default function Leads() {
     setTargetErr("");
     setTargetLoading(true);
     try {
-      const res = await api.get("/api/leads/target-folder");
+      const res = await api.get(`${LEADS_URL}/target-folder`);
       setTargetGroups(res.data?.groups || []);
     } catch (err) {
       setTargetErr(err?.response?.data?.message || "Target folder not available (backend add required)");
@@ -265,7 +284,7 @@ export default function Leads() {
         params.set("createdBy", tgCreatedBy || "all");
       }
 
-      const res = await api.get(`/api/leads/targets?${params.toString()}`);
+      const res = await api.get(`${LEADS_URL}/targets?${params.toString()}`);
       setDashData(res.data || null);
     } catch (err) {
       setDashErr(err?.response?.data?.message || "Target dashboard not available (backend add required)");
@@ -309,10 +328,9 @@ export default function Leads() {
     if (!name) return setMsg("Student name required");
     if (!phone) return setMsg("Phone required");
 
-    const whatsapp = (create.whatsappSame ? phone : create.whatsapp.trim());
+    const whatsapp = create.whatsappSame ? phone : create.whatsapp.trim();
 
-    const courseFinal =
-      create.course === "Other" ? (create.courseOther.trim() || "Other") : (create.course || "");
+    const courseFinal = create.course === "Other" ? (create.courseOther.trim() || "Other") : (create.course || "");
 
     try {
       const payload = {
@@ -326,7 +344,7 @@ export default function Leads() {
       const fu = fromInputDT(create.nextFollowUp);
       if (fu) payload.nextFollowUp = fu.toISOString();
 
-      const res = await api.post("/api/leads", payload);
+      const res = await api.post(LEADS_URL, payload);
 
       // Save first note (education info)
       const leadId = res?.data?._id;
@@ -337,12 +355,13 @@ export default function Leads() {
         `Budget: ${create.budget || "-"}`,
         `Mode: ${create.mode || "-"}`,
         `Batch: ${create.batch || "-"}`,
-        create.note?.trim() ? `Note: ${create.note.trim()}` : ""
+        create.note?.trim() ? `Note: ${create.note.trim()}` : "",
       ].filter(Boolean);
 
       if (leadId && educationNoteParts.length) {
-        try { await api.post(`/api/leads/${leadId}/notes`, { text: educationNoteParts.join(" | ") }); }
-        catch {}
+        try {
+          await api.post(leadUrl(leadId, "notes"), { text: educationNoteParts.join(" | ") });
+        } catch {}
       }
 
       setCreateOpen(false);
@@ -361,7 +380,7 @@ export default function Leads() {
         batch: "Evening",
         status: "new",
         nextFollowUp: "",
-        note: ""
+        note: "",
       });
 
       setMsg("✅ Lead created (Education CRM)");
@@ -377,7 +396,7 @@ export default function Leads() {
 
   /** ===== Patch lead helper ===== */
   const patchLead = async (leadId, payload) => {
-    await api.patch(`/api/leads/${leadId}`, payload);
+    await api.patch(leadUrl(leadId), payload);
   };
 
   /** ===== Quick status ===== */
@@ -432,7 +451,9 @@ export default function Leads() {
   };
 
   useEffect(() => {
-    return () => { if (timerRef.current) clearInterval(timerRef.current); };
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
   }, []);
 
   const onOutcomeChange = (val) => {
@@ -480,8 +501,9 @@ export default function Leads() {
 
       const noteText = afterCallNote?.trim();
       if (noteText) {
-        try { await api.post(`/api/leads/${activeLead._id}/notes`, { text: noteText }); }
-        catch {}
+        try {
+          await api.post(leadUrl(activeLead._id, "notes"), { text: noteText });
+        } catch {}
       }
 
       const duration = callStartedAt ? formatTimer(elapsedMs) : "00:00";
@@ -510,9 +532,9 @@ export default function Leads() {
 
     // Optional: save log (backend route must exist; if not -> ignore)
     try {
-      await api.post(`/api/leads/${lead._id}/whatsapp`, {
+      await api.post(leadUrl(lead._id, "whatsapp"), {
         templateName: "default_followup",
-        messageText: templateText
+        messageText: templateText,
       });
     } catch {}
   };
@@ -524,7 +546,7 @@ export default function Leads() {
     setHistoryItems([]);
     setHistoryErr("");
     try {
-      const res = await api.get(`/api/leads/${lead._id}/history`);
+      const res = await api.get(leadUrl(lead._id, "history"));
       setHistoryItems(res.data || []);
     } catch (err) {
       setHistoryErr(err?.response?.data?.message || "History not available (backend add required)");
@@ -548,7 +570,12 @@ export default function Leads() {
 
   const pendingFollowups = useMemo(() => {
     const now = Date.now();
-    return leads.filter((l) => l.nextFollowUp && new Date(l.nextFollowUp).getTime() < now && !["won", "lost"].includes(l.status)).length;
+    return leads.filter(
+      (l) =>
+        l.nextFollowUp &&
+        new Date(l.nextFollowUp).getTime() < now &&
+        !["won", "lost"].includes(l.status)
+    ).length;
   }, [leads]);
 
   /** ===== Filtered list ===== */
@@ -570,10 +597,17 @@ export default function Leads() {
       if (!query) return true;
 
       const hay = [
-        l.name, l.phone, l.city, l.email,
-        l.assignedTo?.name, l.assignedTo?.email,
-        l.createdBy?.name, l.createdBy?.email
-      ].map(safeStr).join(" ");
+        l.name,
+        l.phone,
+        l.city,
+        l.email,
+        l.assignedTo?.name,
+        l.assignedTo?.email,
+        l.createdBy?.name,
+        l.createdBy?.email,
+      ]
+        .map(safeStr)
+        .join(" ");
 
       return hay.includes(query);
     });
@@ -582,16 +616,27 @@ export default function Leads() {
   return (
     <div style={{ display: "grid", gap: 14 }}>
       {/* Header */}
-      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "flex-start",
+          justifyContent: "space-between",
+          gap: 12,
+          flexWrap: "wrap",
+        }}
+      >
         <div>
           <h2 style={{ margin: 0 }}>Leads</h2>
           <div style={{ color: "#6b7280", fontSize: 13, marginTop: 4 }}>
-            Today New: <b>{todayNewLeads}</b> • Today Follow-ups: <b>{todayFollowups}</b> • Pending: <b>{pendingFollowups}</b>
+            Today New: <b>{todayNewLeads}</b> • Today Follow-ups: <b>{todayFollowups}</b> • Pending:{" "}
+            <b>{pendingFollowups}</b>
           </div>
         </div>
 
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-          <button onClick={() => setCreateOpen(true)} style={btnStyle(true)}>➕ Add Student Lead</button>
+          <button onClick={() => setCreateOpen(true)} style={btnStyle(true)}>
+            ➕ Add Student Lead
+          </button>
 
           {/* ✅ Target Folder button */}
           <button
@@ -617,39 +662,55 @@ export default function Leads() {
             📊 Target Dashboard
           </button>
 
-          <button onClick={load} style={btnStyle(false)}>{loading ? "Refreshing..." : "Refresh"}</button>
+          <button onClick={load} style={btnStyle(false)}>
+            {loading ? "Refreshing..." : "Refresh"}
+          </button>
         </div>
       </div>
 
-      {msg ? (
-        <div style={{ ...cardStyle(), background: "#f9fafb" }}>{msg}</div>
-      ) : null}
+      {msg ? <div style={{ ...cardStyle(), background: "#f9fafb" }}>{msg}</div> : null}
 
       {/* ✅ Target Folder UI */}
       {targetOpen ? (
         <div style={cardStyle()}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: 10,
+              flexWrap: "wrap",
+            }}
+          >
             <div>
               <div style={{ fontWeight: 900, fontSize: 15 }}>
                 🎯 {user?.role === "employee" ? "My Created Leads (Target)" : "Employees Target Folder"}
               </div>
-              <div style={{ fontSize: 12, color: "#6b7280", marginTop: 2 }}>
-                Week-wise view
-              </div>
+              <div style={{ fontSize: 12, color: "#6b7280", marginTop: 2 }}>Week-wise view</div>
             </div>
             <div style={{ display: "flex", gap: 8 }}>
               <button onClick={loadTargetFolder} style={btnStyle(false)}>
                 {targetLoading ? "Loading..." : "Refresh Folder"}
               </button>
-              <button onClick={() => setTargetOpen(false)} style={btnStyle(false)}>Close</button>
+              <button onClick={() => setTargetOpen(false)} style={btnStyle(false)}>
+                Close
+              </button>
             </div>
           </div>
 
           {targetErr ? (
-            <div style={{ marginTop: 12, ...cardStyle(), background: "#fef2f2", borderColor: "#fecaca", color: "#991b1b" }}>
+            <div
+              style={{
+                marginTop: 12,
+                ...cardStyle(),
+                background: "#fef2f2",
+                borderColor: "#fecaca",
+                color: "#991b1b",
+              }}
+            >
               {targetErr}
               <div style={{ marginTop: 6, fontSize: 12, color: "#7f1d1d" }}>
-                Backend route required: <b>/api/leads/target-folder</b>
+                Backend route required: <b>{LEADS_URL}/target-folder</b>
               </div>
             </div>
           ) : null}
@@ -664,7 +725,15 @@ export default function Leads() {
 
               {targetGroups.map((g) => (
                 <div key={g.weekKey} style={{ border: "1px solid #e5e7eb", borderRadius: 16, padding: 12 }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      gap: 10,
+                      flexWrap: "wrap",
+                      alignItems: "center",
+                    }}
+                  >
                     <div style={{ fontWeight: 900 }}>Week: {g.weekLabel || g.weekKey}</div>
                     <div style={{ fontSize: 12, color: "#6b7280" }}>
                       Total: <b>{g.items?.length || 0}</b>
@@ -685,9 +754,7 @@ export default function Leads() {
                       </div>
                     ))}
                     {(g.items || []).length > 15 ? (
-                      <div style={{ fontSize: 12, color: "#6b7280" }}>
-                        Showing 15 of {g.items.length}
-                      </div>
+                      <div style={{ fontSize: 12, color: "#6b7280" }}>Showing 15 of {g.items.length}</div>
                     ) : null}
                   </div>
                 </div>
@@ -700,7 +767,15 @@ export default function Leads() {
       {/* ✅ Target Dashboard UI */}
       {dashOpen ? (
         <div style={cardStyle()}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: 10,
+              flexWrap: "wrap",
+            }}
+          >
             <div>
               <div style={{ fontWeight: 900, fontSize: 15 }}>📊 Target Dashboard</div>
               <div style={{ fontSize: 12, color: "#6b7280", marginTop: 2 }}>
@@ -708,8 +783,12 @@ export default function Leads() {
               </div>
             </div>
             <div style={{ display: "flex", gap: 8 }}>
-              <button onClick={loadTargetDashboard} style={btnStyle(false)}>{dashLoading ? "Loading..." : "Refresh"}</button>
-              <button onClick={() => setDashOpen(false)} style={btnStyle(false)}>Close</button>
+              <button onClick={loadTargetDashboard} style={btnStyle(false)}>
+                {dashLoading ? "Loading..." : "Refresh"}
+              </button>
+              <button onClick={() => setDashOpen(false)} style={btnStyle(false)}>
+                Close
+              </button>
             </div>
           </div>
 
@@ -717,7 +796,12 @@ export default function Leads() {
           <div style={{ marginTop: 12, display: "flex", gap: 10, flexWrap: "wrap", alignItems: "flex-end" }}>
             <label style={{ ...labelStyle(), flex: "1 1 220px" }}>
               From
-              <input type="datetime-local" value={tgFrom} onChange={(e) => setTgFrom(e.target.value)} style={inputStyle()} />
+              <input
+                type="datetime-local"
+                value={tgFrom}
+                onChange={(e) => setTgFrom(e.target.value)}
+                style={inputStyle()}
+              />
             </label>
 
             <label style={{ ...labelStyle(), flex: "1 1 220px" }}>
@@ -749,31 +833,52 @@ export default function Leads() {
             ) : null}
 
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-              <button type="button" onClick={presetThisWeek} style={btnStyle(false)}>This Week</button>
-              <button type="button" onClick={presetThisMonth} style={btnStyle(false)}>This Month</button>
-              <button type="button" onClick={loadTargetDashboard} style={btnStyle(true)}>Apply</button>
+              <button type="button" onClick={presetThisWeek} style={btnStyle(false)}>
+                This Week
+              </button>
+              <button type="button" onClick={presetThisMonth} style={btnStyle(false)}>
+                This Month
+              </button>
+              <button type="button" onClick={loadTargetDashboard} style={btnStyle(true)}>
+                Apply
+              </button>
             </div>
           </div>
 
           {dashErr ? (
-            <div style={{ marginTop: 12, ...cardStyle(), background: "#fef2f2", borderColor: "#fecaca", color: "#991b1b" }}>
+            <div
+              style={{
+                marginTop: 12,
+                ...cardStyle(),
+                background: "#fef2f2",
+                borderColor: "#fecaca",
+                color: "#991b1b",
+              }}
+            >
               {dashErr}
               <div style={{ marginTop: 6, fontSize: 12, color: "#7f1d1d" }}>
-                Backend route required: <b>/api/leads/targets</b>
+                Backend route required: <b>{LEADS_URL}/targets</b>
               </div>
             </div>
           ) : null}
 
           {/* Summary */}
           {dashData?.totals ? (
-            <div style={{ marginTop: 14, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 10 }}>
+            <div
+              style={{
+                marginTop: 14,
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
+                gap: 10,
+              }}
+            >
               {[
                 ["Total", dashData.totals.total],
                 ["New", dashData.totals.new],
                 ["Contacted", dashData.totals.contacted],
                 ["Demo", dashData.totals.demo],
                 ["Won", dashData.totals.won],
-                ["Lost", dashData.totals.lost]
+                ["Lost", dashData.totals.lost],
               ].map(([k, v]) => (
                 <div key={k} style={{ border: "1px solid #e5e7eb", borderRadius: 14, padding: 12 }}>
                   <div style={{ fontSize: 12, color: "#6b7280" }}>{k}</div>
@@ -796,7 +901,10 @@ export default function Leads() {
                 <thead>
                   <tr style={{ textAlign: "left" }}>
                     {["Period", "Total", "New", "Contacted", "Demo", "Won", "Lost"].map((h) => (
-                      <th key={h} style={{ padding: "10px 8px", borderBottom: "1px solid #e5e7eb", fontSize: 12, color: "#6b7280" }}>
+                      <th
+                        key={h}
+                        style={{ padding: "10px 8px", borderBottom: "1px solid #e5e7eb", fontSize: 12, color: "#6b7280" }}
+                      >
                         {h}
                       </th>
                     ))}
@@ -834,15 +942,21 @@ export default function Leads() {
                       display: "flex",
                       gap: 10,
                       flexWrap: "wrap",
-                      alignItems: "center"
+                      alignItems: "center",
                     }}
                   >
                     <div style={{ fontWeight: 900 }}>{r.name || "Employee"}</div>
                     <div style={{ fontSize: 12, color: "#6b7280" }}>{r.email || ""}</div>
                     <div style={{ marginLeft: "auto", display: "flex", gap: 10, fontSize: 12 }}>
-                      <span>Total: <b>{r.total}</b></span>
-                      <span>Demo: <b>{r.demo}</b></span>
-                      <span>Won: <b>{r.won}</b></span>
+                      <span>
+                        Total: <b>{r.total}</b>
+                      </span>
+                      <span>
+                        Demo: <b>{r.demo}</b>
+                      </span>
+                      <span>
+                        Won: <b>{r.won}</b>
+                      </span>
                     </div>
                   </div>
                 ))}
@@ -891,9 +1005,13 @@ export default function Leads() {
         <div style={{ ...cardStyle(), border: "1px solid #111827" }}>
           <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
             <b style={{ fontSize: 16 }}>After Call Update</b>
-            <span style={{ fontSize: 12, color: "#6b7280" }}>Timer: <b>{formatTimer(elapsedMs)}</b></span>
+            <span style={{ fontSize: 12, color: "#6b7280" }}>
+              Timer: <b>{formatTimer(elapsedMs)}</b>
+            </span>
             <div style={{ marginLeft: "auto" }}>
-              <button onClick={closeAfterCall} style={btnStyle(false)}>Close</button>
+              <button onClick={closeAfterCall} style={btnStyle(false)}>
+                Close
+              </button>
             </div>
           </div>
 
@@ -904,7 +1022,8 @@ export default function Leads() {
                 <span style={badgeStyle(activeLead.status)}>{activeLead.status}</span>
               </div>
               <div style={{ fontSize: 12, color: "#6b7280", marginTop: 2 }}>
-                {activeLead.phone || "-"} {activeLead.city ? `• ${activeLead.city}` : ""} {activeLead.email ? `• ${activeLead.email}` : ""}
+                {activeLead.phone || "-"} {activeLead.city ? `• ${activeLead.city}` : ""}{" "}
+                {activeLead.email ? `• ${activeLead.email}` : ""}
               </div>
 
               <div style={{ marginTop: 10, display: "flex", gap: 10, flexWrap: "wrap" }}>
@@ -923,7 +1042,10 @@ export default function Leads() {
                   <input
                     type="datetime-local"
                     value={afterCallFollowUp}
-                    onChange={(e) => { setAfterCallFollowUp(e.target.value); setSaveHot(true); }}
+                    onChange={(e) => {
+                      setAfterCallFollowUp(e.target.value);
+                      setSaveHot(true);
+                    }}
                     style={inputStyle()}
                   />
                 </label>
@@ -947,8 +1069,12 @@ export default function Leads() {
                       Demo Date/Time
                       <input type="datetime-local" value={demoDT} onChange={(e) => setDemoDT(e.target.value)} style={inputStyle()} />
                     </label>
-                    <button onClick={confirmDemoSchedule} style={btnStyle(true)}>Confirm</button>
-                    <button onClick={() => setDemoOpen(false)} style={btnStyle(false)}>Cancel</button>
+                    <button onClick={confirmDemoSchedule} style={btnStyle(true)}>
+                      Confirm
+                    </button>
+                    <button onClick={() => setDemoOpen(false)} style={btnStyle(false)}>
+                      Cancel
+                    </button>
                   </div>
                 </div>
               ) : null}
@@ -966,14 +1092,18 @@ export default function Leads() {
                 </button>
 
                 <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                  <button onClick={() => quickStatus(activeLead._id, "demo")} style={btnStyle(false)}>Mark Demo</button>
-                  <button onClick={() => quickStatus(activeLead._id, "won")} style={btnStyle(false)}>Mark Won</button>
-                  <button onClick={() => quickStatus(activeLead._id, "lost")} style={btnStyle(false)}>Mark Lost</button>
+                  <button onClick={() => quickStatus(activeLead._id, "demo")} style={btnStyle(false)}>
+                    Mark Demo
+                  </button>
+                  <button onClick={() => quickStatus(activeLead._id, "won")} style={btnStyle(false)}>
+                    Mark Won
+                  </button>
+                  <button onClick={() => quickStatus(activeLead._id, "lost")} style={btnStyle(false)}>
+                    Mark Lost
+                  </button>
                 </div>
 
-                <div style={{ marginLeft: "auto", fontSize: 12, color: "#6b7280" }}>
-                  Outcome auto-updates stage (Connected → Demo)
-                </div>
+                <div style={{ marginLeft: "auto", fontSize: 12, color: "#6b7280" }}>Outcome auto-updates stage (Connected → Demo)</div>
               </div>
             </div>
           ) : (
@@ -1013,7 +1143,8 @@ export default function Leads() {
                       </div>
 
                       <div style={{ marginTop: 4, fontSize: 12, color: "#6b7280" }}>
-                        {l.city || "-"} {l.email ? `• ${l.email}` : ""} {l.assignedTo?.name ? `• Assigned: ${l.assignedTo.name}` : ""}
+                        {l.city || "-"} {l.email ? `• ${l.email}` : ""}{" "}
+                        {l.assignedTo?.name ? `• Assigned: ${l.assignedTo.name}` : ""}
                         {l.createdBy?.name ? ` • CreatedBy: ${l.createdBy.name}` : ""}
                       </div>
 
@@ -1038,7 +1169,7 @@ export default function Leads() {
                               padding: "6px 10px",
                               cursor: "pointer",
                               background: "#fff",
-                              fontWeight: 900
+                              fontWeight: 900,
                             }}
                           >
                             💬 WhatsApp
@@ -1052,12 +1183,22 @@ export default function Leads() {
                     </div>
 
                     <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-                      <button onClick={() => openAfterCall(l)} style={btnStyle(false)}>After Call</button>
-                      <button onClick={() => openHistory(l)} style={btnStyle(false)}>History</button>
+                      <button onClick={() => openAfterCall(l)} style={btnStyle(false)}>
+                        After Call
+                      </button>
+                      <button onClick={() => openHistory(l)} style={btnStyle(false)}>
+                        History
+                      </button>
 
-                      <button onClick={() => quickStatus(l._id, "demo")} style={btnStyle(false)}>Demo</button>
-                      <button onClick={() => quickStatus(l._id, "won")} style={btnStyle(false)}>Won</button>
-                      <button onClick={() => quickStatus(l._id, "lost")} style={btnStyle(false)}>Lost</button>
+                      <button onClick={() => quickStatus(l._id, "demo")} style={btnStyle(false)}>
+                        Demo
+                      </button>
+                      <button onClick={() => quickStatus(l._id, "won")} style={btnStyle(false)}>
+                        Won
+                      </button>
+                      <button onClick={() => quickStatus(l._id, "lost")} style={btnStyle(false)}>
+                        Lost
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -1066,9 +1207,7 @@ export default function Leads() {
           )}
         </div>
 
-        <div style={{ marginTop: 10, fontSize: 12, color: "#6b7280" }}>
-          Tip: Phone click → After Call opens + timer. WhatsApp button opens wa.me.
-        </div>
+        <div style={{ marginTop: 10, fontSize: 12, color: "#6b7280" }}>Tip: Phone click → After Call opens + timer. WhatsApp button opens wa.me.</div>
       </div>
 
       {/* ✅ Create Lead Modal (Education CRM) */}
@@ -1081,20 +1220,31 @@ export default function Leads() {
             zIndex: 60,
             display: "grid",
             placeItems: "center",
-            padding: 12
+            padding: 12,
           }}
           onMouseDown={(e) => {
             if (e.target === e.currentTarget) setCreateOpen(false);
           }}
         >
-          <div style={{ width: 980, maxWidth: "98vw", background: "#fff", borderRadius: 18, overflow: "hidden", border: "1px solid #e5e7eb" }}>
+          <div
+            style={{
+              width: 980,
+              maxWidth: "98vw",
+              background: "#fff",
+              borderRadius: 18,
+              overflow: "hidden",
+              border: "1px solid #e5e7eb",
+            }}
+          >
             <div style={{ padding: 14, borderBottom: "1px solid #e5e7eb", display: "flex", alignItems: "center", gap: 10 }}>
               <div>
                 <div style={{ fontWeight: 900, fontSize: 16 }}>Create Student Lead</div>
                 <div style={{ fontSize: 12, color: "#6b7280" }}>Education CRM form — fast entry for counsellors</div>
               </div>
               <div style={{ marginLeft: "auto" }}>
-                <button onClick={() => setCreateOpen(false)} style={btnStyle(false)}>Close</button>
+                <button onClick={() => setCreateOpen(false)} style={btnStyle(false)}>
+                  Close
+                </button>
               </div>
             </div>
 
@@ -1104,22 +1254,42 @@ export default function Leads() {
                 <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
                   <label style={{ ...labelStyle(), flex: "1 1 260px" }}>
                     Student Name*
-                    <input style={inputStyle()} value={create.name} onChange={(e) => setCreate(s => ({ ...s, name: e.target.value }))} placeholder="e.g., Aditi Sharma" />
+                    <input
+                      style={inputStyle()}
+                      value={create.name}
+                      onChange={(e) => setCreate((s) => ({ ...s, name: e.target.value }))}
+                      placeholder="e.g., Aditi Sharma"
+                    />
                   </label>
 
                   <label style={{ ...labelStyle(), flex: "1 1 220px" }}>
                     Phone*
-                    <input style={inputStyle()} value={create.phone} onChange={(e) => setCreate(s => ({ ...s, phone: e.target.value }))} placeholder="e.g., 9876543210" />
+                    <input
+                      style={inputStyle()}
+                      value={create.phone}
+                      onChange={(e) => setCreate((s) => ({ ...s, phone: e.target.value }))}
+                      placeholder="e.g., 9876543210"
+                    />
                   </label>
 
                   <label style={{ ...labelStyle(), flex: "1 1 220px" }}>
                     Email
-                    <input style={inputStyle()} value={create.email} onChange={(e) => setCreate(s => ({ ...s, email: e.target.value }))} placeholder="e.g., aditi@gmail.com" />
+                    <input
+                      style={inputStyle()}
+                      value={create.email}
+                      onChange={(e) => setCreate((s) => ({ ...s, email: e.target.value }))}
+                      placeholder="e.g., aditi@gmail.com"
+                    />
                   </label>
 
                   <label style={{ ...labelStyle(), flex: "1 1 180px" }}>
                     City
-                    <input style={inputStyle()} value={create.city} onChange={(e) => setCreate(s => ({ ...s, city: e.target.value }))} placeholder="e.g., Delhi" />
+                    <input
+                      style={inputStyle()}
+                      value={create.city}
+                      onChange={(e) => setCreate((s) => ({ ...s, city: e.target.value }))}
+                      placeholder="e.g., Delhi"
+                    />
                   </label>
                 </div>
 
@@ -1130,7 +1300,7 @@ export default function Leads() {
                       style={inputStyle()}
                       disabled={create.whatsappSame}
                       value={create.whatsappSame ? create.phone : create.whatsapp}
-                      onChange={(e) => setCreate(s => ({ ...s, whatsapp: e.target.value }))}
+                      onChange={(e) => setCreate((s) => ({ ...s, whatsapp: e.target.value }))}
                       placeholder="WhatsApp number"
                     />
                   </label>
@@ -1139,7 +1309,7 @@ export default function Leads() {
                     <input
                       type="checkbox"
                       checked={create.whatsappSame}
-                      onChange={(e) => setCreate(s => ({ ...s, whatsappSame: e.target.checked }))}
+                      onChange={(e) => setCreate((s) => ({ ...s, whatsappSame: e.target.checked }))}
                     />
                     Same as phone
                   </label>
@@ -1154,7 +1324,7 @@ export default function Leads() {
                     <select
                       style={selectStyle()}
                       value={create.course}
-                      onChange={(e) => setCreate(s => ({ ...s, course: e.target.value }))}
+                      onChange={(e) => setCreate((s) => ({ ...s, course: e.target.value }))}
                     >
                       <option value="">-- select --</option>
                       <option value="Digital Marketing">Digital Marketing</option>
@@ -1169,13 +1339,22 @@ export default function Leads() {
                   {create.course === "Other" ? (
                     <label style={{ ...labelStyle(), flex: "1 1 260px" }}>
                       Other Course
-                      <input style={inputStyle()} value={create.courseOther} onChange={(e) => setCreate(s => ({ ...s, courseOther: e.target.value }))} placeholder="Course name" />
+                      <input
+                        style={inputStyle()}
+                        value={create.courseOther}
+                        onChange={(e) => setCreate((s) => ({ ...s, courseOther: e.target.value }))}
+                        placeholder="Course name"
+                      />
                     </label>
                   ) : null}
 
                   <label style={{ ...labelStyle(), flex: "1 1 220px" }}>
                     Lead Source
-                    <select style={selectStyle()} value={create.source} onChange={(e) => setCreate(s => ({ ...s, source: e.target.value }))}>
+                    <select
+                      style={selectStyle()}
+                      value={create.source}
+                      onChange={(e) => setCreate((s) => ({ ...s, source: e.target.value }))}
+                    >
                       <option>Instagram</option>
                       <option>Facebook</option>
                       <option>Google</option>
@@ -1190,7 +1369,11 @@ export default function Leads() {
 
                   <label style={{ ...labelStyle(), flex: "1 1 220px" }}>
                     Budget
-                    <select style={selectStyle()} value={create.budget} onChange={(e) => setCreate(s => ({ ...s, budget: e.target.value }))}>
+                    <select
+                      style={selectStyle()}
+                      value={create.budget}
+                      onChange={(e) => setCreate((s) => ({ ...s, budget: e.target.value }))}
+                    >
                       <option>Under 10k</option>
                       <option>10k - 20k</option>
                       <option>20k - 40k</option>
@@ -1205,7 +1388,7 @@ export default function Leads() {
                 <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
                   <label style={{ ...labelStyle(), flex: "1 1 220px" }}>
                     Mode
-                    <select style={selectStyle()} value={create.mode} onChange={(e) => setCreate(s => ({ ...s, mode: e.target.value }))}>
+                    <select style={selectStyle()} value={create.mode} onChange={(e) => setCreate((s) => ({ ...s, mode: e.target.value }))}>
                       <option>Online</option>
                       <option>Offline</option>
                       <option>Hybrid</option>
@@ -1214,7 +1397,7 @@ export default function Leads() {
 
                   <label style={{ ...labelStyle(), flex: "1 1 220px" }}>
                     Preferred Batch
-                    <select style={selectStyle()} value={create.batch} onChange={(e) => setCreate(s => ({ ...s, batch: e.target.value }))}>
+                    <select style={selectStyle()} value={create.batch} onChange={(e) => setCreate((s) => ({ ...s, batch: e.target.value }))}>
                       <option>Morning</option>
                       <option>Evening</option>
                       <option>Weekend</option>
@@ -1223,7 +1406,7 @@ export default function Leads() {
 
                   <label style={{ ...labelStyle(), flex: "1 1 220px" }}>
                     Stage
-                    <select style={selectStyle()} value={create.status} onChange={(e) => setCreate(s => ({ ...s, status: e.target.value }))}>
+                    <select style={selectStyle()} value={create.status} onChange={(e) => setCreate((s) => ({ ...s, status: e.target.value }))}>
                       <option value="new">New</option>
                       <option value="contacted">Contacted</option>
                       <option value="demo">Demo</option>
@@ -1238,7 +1421,7 @@ export default function Leads() {
                       type="datetime-local"
                       style={inputStyle()}
                       value={create.nextFollowUp}
-                      onChange={(e) => setCreate(s => ({ ...s, nextFollowUp: e.target.value }))}
+                      onChange={(e) => setCreate((s) => ({ ...s, nextFollowUp: e.target.value }))}
                     />
                   </label>
                 </div>
@@ -1251,15 +1434,19 @@ export default function Leads() {
                   <input
                     style={inputStyle()}
                     value={create.note}
-                    onChange={(e) => setCreate(s => ({ ...s, note: e.target.value }))}
+                    onChange={(e) => setCreate((s) => ({ ...s, note: e.target.value }))}
                     placeholder="e.g., student wants demo tomorrow 6pm"
                   />
                 </label>
               </div>
 
               <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", borderTop: "1px solid #e5e7eb", paddingTop: 12 }}>
-                <button type="button" onClick={() => setCreateOpen(false)} style={btnStyle(false)}>Cancel</button>
-                <button type="submit" style={btnStyle(true)}>✅ Save Student Lead</button>
+                <button type="button" onClick={() => setCreateOpen(false)} style={btnStyle(false)}>
+                  Cancel
+                </button>
+                <button type="submit" style={btnStyle(true)}>
+                  ✅ Save Student Lead
+                </button>
               </div>
             </form>
           </div>
@@ -1281,7 +1468,7 @@ export default function Leads() {
             boxShadow: "-10px 0 30px rgba(0,0,0,0.08)",
             padding: 16,
             zIndex: 70,
-            overflowY: "auto"
+            overflowY: "auto",
           }}
         >
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -1292,27 +1479,23 @@ export default function Leads() {
               </div>
             </div>
             <div style={{ marginLeft: "auto" }}>
-              <button onClick={closeHistory} style={btnStyle(false)}>Close</button>
+              <button onClick={closeHistory} style={btnStyle(false)}>
+                Close
+              </button>
             </div>
           </div>
 
           <div style={{ marginTop: 14 }}>
             {historyErr ? (
-              <div style={{ ...cardStyle(), background: "#fef2f2", borderColor: "#fecaca", color: "#991b1b" }}>
-                {historyErr}
-              </div>
+              <div style={{ ...cardStyle(), background: "#fef2f2", borderColor: "#fecaca", color: "#991b1b" }}>{historyErr}</div>
             ) : null}
 
-            {historyItems.length === 0 && !historyErr ? (
-              <div style={{ color: "#6b7280" }}>Loading...</div>
-            ) : null}
+            {historyItems.length === 0 && !historyErr ? <div style={{ color: "#6b7280" }}>Loading...</div> : null}
 
             <div style={{ display: "grid", gap: 10, marginTop: 10 }}>
               {historyItems.map((h) => (
                 <div key={h._id || `${h.createdAt}-${Math.random()}`} style={{ border: "1px solid #e5e7eb", borderRadius: 14, padding: 12 }}>
-                  <div style={{ fontSize: 12, color: "#6b7280" }}>
-                    {h.createdAt ? new Date(h.createdAt).toLocaleString() : "-"}
-                  </div>
+                  <div style={{ fontSize: 12, color: "#6b7280" }}>{h.createdAt ? new Date(h.createdAt).toLocaleString() : "-"}</div>
                   <div style={{ marginTop: 4, fontWeight: 800 }}>
                     {(h.actor?.name || h.actorName || h.actorId?.name || "User")} — {(h.action || h.title || "update")}
                   </div>
@@ -1321,9 +1504,7 @@ export default function Leads() {
                   {h?.meta?.note ? <div style={{ marginTop: 6 }}>{h.meta.note}</div> : null}
 
                   {h.meta ? (
-                    <div style={{ marginTop: 6, fontSize: 12, color: "#6b7280" }}>
-                      {typeof h.meta === "string" ? h.meta : JSON.stringify(h.meta)}
-                    </div>
+                    <div style={{ marginTop: 6, fontSize: 12, color: "#6b7280" }}>{typeof h.meta === "string" ? h.meta : JSON.stringify(h.meta)}</div>
                   ) : null}
                 </div>
               ))}

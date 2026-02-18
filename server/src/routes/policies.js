@@ -35,7 +35,6 @@ router.get(
 /**
  * GET /api/policies/:userId
  * Admin: get one user's policy
- * ✅ FIX: validates userId
  */
 router.get(
   "/:userId",
@@ -59,11 +58,27 @@ router.get(
 
       const policy = await EmployeePolicy.findOne({
         companyId: req.dbUser.companyId,
-        userId: userId
+        userId
       });
 
-      // if not set, return default empty policy
-      res.json(policy || { companyId: req.dbUser.companyId, userId, trackingEnabled: false, maxDailyHours: 6 });
+      // default policy if not set
+      const defaultPolicy = {
+        companyId: req.dbUser.companyId,
+        userId,
+
+        requireSelfieIn: true,
+        requireSelfieOut: true,
+        requireLocationIn: true,
+        requireLocationOut: true,
+        breaksEnabled: true,
+
+        geoFenceEnabled: false,
+        geoCenterLat: 0,
+        geoCenterLng: 0,
+        geoRadiusMeters: 150
+      };
+
+      res.json(policy || defaultPolicy);
     } catch (e) {
       res.status(500).json({ message: "Server error" });
     }
@@ -71,10 +86,41 @@ router.get(
 );
 
 /**
+ * Helper: build updates from body (supports all fields used in frontend)
+ */
+function buildPolicyUpdates(body) {
+  const updates = {};
+
+  // booleans
+  const boolKeys = [
+    "requireSelfieIn",
+    "requireSelfieOut",
+    "requireLocationIn",
+    "requireLocationOut",
+    "breaksEnabled",
+    "geoFenceEnabled"
+  ];
+  for (const k of boolKeys) {
+    if (k in body) updates[k] = !!body[k];
+  }
+
+  // numbers
+  const numKeys = ["geoCenterLat", "geoCenterLng", "geoRadiusMeters"];
+  for (const k of numKeys) {
+    if (k in body) updates[k] = Number(body[k] || 0);
+  }
+
+  // safety defaults
+  if ("geoRadiusMeters" in updates && !Number.isFinite(updates.geoRadiusMeters)) {
+    updates.geoRadiusMeters = 150;
+  }
+
+  return updates;
+}
+
+/**
  * POST /api/policies/:userId
  * Admin: create/update policy for user
- * body: { trackingEnabled, maxDailyHours }
- * ✅ FIX: validates userId
  */
 router.post(
   "/:userId",
@@ -96,9 +142,46 @@ router.post(
 
       if (!userRow) return res.status(404).json({ message: "User not found" });
 
-      const updates = {};
-      if ("trackingEnabled" in req.body) updates.trackingEnabled = !!req.body.trackingEnabled;
-      if ("maxDailyHours" in req.body) updates.maxDailyHours = Number(req.body.maxDailyHours || 6);
+      const updates = buildPolicyUpdates(req.body || {});
+
+      const policy = await EmployeePolicy.findOneAndUpdate(
+        { companyId: req.dbUser.companyId, userId },
+        { $set: updates, $setOnInsert: { companyId: req.dbUser.companyId, userId } },
+        { new: true, upsert: true }
+      );
+
+      res.json(policy);
+    } catch (e) {
+      res.status(500).json({ message: "Server error" });
+    }
+  }
+);
+
+/**
+ * PUT /api/policies/:userId
+ * ✅ Added so frontend PUT also works (optional)
+ */
+router.put(
+  "/:userId",
+  authRequired,
+  attachUser,
+  authorizeRoles("admin"),
+  async (req, res) => {
+    try {
+      const { userId } = req.params;
+
+      if (!userId || userId === "undefined" || !isValidObjectId(userId)) {
+        return res.status(400).json({ message: "Valid userId required" });
+      }
+
+      const userRow = await User.findOne({
+        _id: userId,
+        companyId: req.dbUser.companyId
+      }).select("_id");
+
+      if (!userRow) return res.status(404).json({ message: "User not found" });
+
+      const updates = buildPolicyUpdates(req.body || {});
 
       const policy = await EmployeePolicy.findOneAndUpdate(
         { companyId: req.dbUser.companyId, userId },

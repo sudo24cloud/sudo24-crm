@@ -1,12 +1,5 @@
-# dependencies
-**/node_modules/
-
-# env files
-**/.env
-
-# builds
-**/dist
-**/build
-
-# logs
-**/*.log
+node_modules
+.env
+uploads
+client/node_modules
+server/node_modules

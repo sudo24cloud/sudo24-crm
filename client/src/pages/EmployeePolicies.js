@@ -8,25 +8,36 @@ export default function EmployeePolicies() {
   const [policy, setPolicy] = useState(null);
   const [msg, setMsg] = useState("");
 
+  const defaultPolicy = {
+    requireSelfieIn: true,
+    requireSelfieOut: true,
+    requireLocationIn: true,
+    requireLocationOut: true,
+    breaksEnabled: true,
+    geoFenceEnabled: false,
+    geoCenterLat: 0,
+    geoCenterLng: 0,
+    geoRadiusMeters: 150
+  };
+
   const loadUsers = async () => {
     const res = await api.get("/api/users");
     setUsers(res.data || []);
   };
 
-  useEffect(() => { loadUsers(); }, []); // eslint-disable-line
+  useEffect(() => {
+    loadUsers();
+    // eslint-disable-next-line
+  }, []);
 
   const loadPolicy = async (userId) => {
     setMsg("");
     setPolicy(null);
     if (!userId) return;
+
     try {
       const res = await api.get(`/api/policies/${userId}`);
-      setPolicy(res.data || {
-        requireSelfieIn: true, requireSelfieOut: true,
-        requireLocationIn: true, requireLocationOut: true,
-        breaksEnabled: true,
-        geoFenceEnabled: false, geoCenterLat: 0, geoCenterLng: 0, geoRadiusMeters: 150
-      });
+      setPolicy({ ...defaultPolicy, ...(res.data || {}) });
     } catch (e) {
       setMsg(e?.response?.data?.message || "Error");
     }
@@ -35,14 +46,15 @@ export default function EmployeePolicies() {
   const save = async () => {
     setMsg("");
     try {
-      await api.put(`/api/policies/${selectedId}`, policy || {});
+      // ✅ Backend supports POST for update (and PUT also, but we keep POST)
+      await api.post(`/api/policies/${selectedId}`, policy || {});
       setMsg("✅ Saved");
     } catch (e) {
       setMsg(e?.response?.data?.message || "Error");
     }
   };
 
-  const toggle = (k) => setPolicy(s => ({ ...s, [k]: !s?.[k] }));
+  const toggle = (k) => setPolicy((s) => ({ ...s, [k]: !s?.[k] }));
 
   return (
     <div>
@@ -59,7 +71,7 @@ export default function EmployeePolicies() {
             }}
           >
             <option value="">-- select --</option>
-            {users.map(u => (
+            {users.map((u) => (
               <option key={u._id} value={u._id}>
                 {u.name} ({u.role})
               </option>
@@ -67,25 +79,52 @@ export default function EmployeePolicies() {
           </select>
         </label>
 
-        <button onClick={save} disabled={!selectedId || !policy}>Save</button>
+        <button onClick={save} disabled={!selectedId || !policy}>
+          Save
+        </button>
       </div>
 
-      {msg ? <div style={{ marginTop: 10, padding: 10, background: "#f5f5f5", borderRadius: 10 }}>{msg}</div> : null}
+      {msg ? (
+        <div style={{ marginTop: 10, padding: 10, background: "#f5f5f5", borderRadius: 10 }}>
+          {msg}
+        </div>
+      ) : null}
 
       {policy ? (
         <div style={{ marginTop: 12, border: "1px solid #ddd", borderRadius: 10, padding: 12, maxWidth: 820 }}>
           <b>Controls</b>
 
           <div style={{ marginTop: 10, display: "grid", gap: 8 }}>
-            <label><input type="checkbox" checked={!!policy.requireSelfieIn} onChange={() => toggle("requireSelfieIn")} /> Require selfie on Check-in</label>
-            <label><input type="checkbox" checked={!!policy.requireLocationIn} onChange={() => toggle("requireLocationIn")} /> Require location on Check-in</label>
-            <label><input type="checkbox" checked={!!policy.requireSelfieOut} onChange={() => toggle("requireSelfieOut")} /> Require selfie on Check-out</label>
-            <label><input type="checkbox" checked={!!policy.requireLocationOut} onChange={() => toggle("requireLocationOut")} /> Require location on Check-out</label>
-            <label><input type="checkbox" checked={!!policy.breaksEnabled} onChange={() => toggle("breaksEnabled")} /> Breaks enabled</label>
+            <label>
+              <input type="checkbox" checked={!!policy.requireSelfieIn} onChange={() => toggle("requireSelfieIn")} /> Require
+              selfie on Check-in
+            </label>
+
+            <label>
+              <input type="checkbox" checked={!!policy.requireLocationIn} onChange={() => toggle("requireLocationIn")} /> Require
+              location on Check-in
+            </label>
+
+            <label>
+              <input type="checkbox" checked={!!policy.requireSelfieOut} onChange={() => toggle("requireSelfieOut")} /> Require
+              selfie on Check-out
+            </label>
+
+            <label>
+              <input type="checkbox" checked={!!policy.requireLocationOut} onChange={() => toggle("requireLocationOut")} /> Require
+              location on Check-out
+            </label>
+
+            <label>
+              <input type="checkbox" checked={!!policy.breaksEnabled} onChange={() => toggle("breaksEnabled")} /> Breaks enabled
+            </label>
 
             <hr />
 
-            <label><input type="checkbox" checked={!!policy.geoFenceEnabled} onChange={() => toggle("geoFenceEnabled")} /> Enable Geo-fence (optional)</label>
+            <label>
+              <input type="checkbox" checked={!!policy.geoFenceEnabled} onChange={() => toggle("geoFenceEnabled")} /> Enable
+              Geo-fence (optional)
+            </label>
 
             {policy.geoFenceEnabled ? (
               <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
@@ -93,23 +132,25 @@ export default function EmployeePolicies() {
                   Center Lat
                   <input
                     value={policy.geoCenterLat}
-                    onChange={(e) => setPolicy(s => ({ ...s, geoCenterLat: Number(e.target.value) }))}
+                    onChange={(e) => setPolicy((s) => ({ ...s, geoCenterLat: Number(e.target.value) }))}
                     style={{ width: 160 }}
                   />
                 </label>
+
                 <label>
                   Center Lng
                   <input
                     value={policy.geoCenterLng}
-                    onChange={(e) => setPolicy(s => ({ ...s, geoCenterLng: Number(e.target.value) }))}
+                    onChange={(e) => setPolicy((s) => ({ ...s, geoCenterLng: Number(e.target.value) }))}
                     style={{ width: 160 }}
                   />
                 </label>
+
                 <label>
                   Radius (meters)
                   <input
                     value={policy.geoRadiusMeters}
-                    onChange={(e) => setPolicy(s => ({ ...s, geoRadiusMeters: Number(e.target.value) }))}
+                    onChange={(e) => setPolicy((s) => ({ ...s, geoRadiusMeters: Number(e.target.value) }))}
                     style={{ width: 160 }}
                   />
                 </label>

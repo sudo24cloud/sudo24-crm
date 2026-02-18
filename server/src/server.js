@@ -19,11 +19,36 @@ const admissionsRoutes = require("./routes/admissions");
 const app = express();
 
 /* ================================
-   🚨 FULL OPEN CORS (TEST MODE)
+   ✅ CORS (LOCAL DEV SAFE)
+   - Allows React dev server (localhost:3000)
+   - Handles preflight properly
 ================================ */
 
-app.use(cors());              // 🔥 completely open
-app.options("*", cors());     // 🔥 handle preflight
+const allowedOrigins = [
+  "http://localhost:3000",
+  "http://127.0.0.1:3000"
+];
+
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      // allow requests with no origin (Postman, server-to-server)
+      if (!origin) return callback(null, true);
+
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+
+      return callback(new Error("Not allowed by CORS: " + origin));
+    },
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"]
+  })
+);
+
+// ✅ preflight
+app.options("*", cors());
 
 /* ================================
    MIDDLEWARE
@@ -71,7 +96,6 @@ const PORT = process.env.PORT || 5000;
     app.listen(PORT, () => {
       console.log(`✅ API running on port ${PORT}`);
     });
-
   } catch (err) {
     console.error("❌ Failed to start server", err);
     process.exit(1);

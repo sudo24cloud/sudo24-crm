@@ -2,6 +2,7 @@ require("dotenv").config();
 
 const express = require("express");
 const cors = require("cors");
+const path = require("path");
 const { connectDB } = require("./config/db");
 
 const authRoutes = require("./routes/auth");
@@ -16,61 +17,58 @@ const reportRoutes = require("./routes/reports");
 const statsRoutes = require("./routes/stats");
 const admissionsRoutes = require("./routes/admissions");
 
+// ⚠️ If upload route exists
+let uploadRoutes;
+try {
+  uploadRoutes = require("./routes/upload");
+} catch (err) {
+  uploadRoutes = null;
+}
+
 const app = express();
 
 /* ================================
-   ✅ CORS (LOCAL DEV SAFE)
-   - Allows React dev server (localhost:3000)
-   - Handles preflight properly
+   CORS FIXED FOR NETLIFY + LOCAL
 ================================ */
-
 const allowedOrigins = [
   "http://localhost:3000",
-  "http://127.0.0.1:3000"
+  "http://127.0.0.1:3000",
+  "https://cheery-basbousa-29c3cb.netlify.app"
 ];
 
-app.use(
-  cors({
-    origin: (origin, callback) => {
-      // allow requests with no origin (Postman, server-to-server)
-      if (!origin) return callback(null, true);
+const corsOptions = {
+  origin: function (origin, callback) {
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.includes(origin)) return callback(null, true);
+    return callback(null, false);
+  },
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"]
+};
 
-      if (allowedOrigins.includes(origin)) {
-        return callback(null, true);
-      }
-
-      return callback(new Error("Not allowed by CORS: " + origin));
-    },
-    credentials: true,
-    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"]
-  })
-);
-
-// ✅ preflight
-app.options("*", cors());
+app.use(cors(corsOptions));
+app.options("*", cors(corsOptions));
 
 /* ================================
    MIDDLEWARE
 ================================ */
-
 app.use(express.json({ limit: "1mb" }));
+
+/* ================================
+   STATIC UPLOADS (if folder exists)
+================================ */
+app.use("/uploads", express.static(path.join(__dirname, "..", "uploads")));
 
 /* ================================
    HEALTH CHECK
 ================================ */
-
 app.get("/", (req, res) => {
-  res.json({
-    ok: true,
-    message: "SUDO24 CRM SaaS API Running 🚀"
-  });
+  res.json({ ok: true, message: "SUDO24 CRM SaaS API Running 🚀" });
 });
 
 /* ================================
-   API ROUTES
+   ROUTES
 ================================ */
-
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/leads", leadRoutes);
@@ -83,10 +81,13 @@ app.use("/api/policies", policyRoutes);
 app.use("/api/reports", reportRoutes);
 app.use("/api/stats", statsRoutes);
 
+if (uploadRoutes) {
+  app.use("/api/upload", uploadRoutes);
+}
+
 /* ================================
    START SERVER
 ================================ */
-
 const PORT = process.env.PORT || 5000;
 
 (async () => {

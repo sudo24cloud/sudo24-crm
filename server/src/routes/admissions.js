@@ -3,7 +3,7 @@ const mongoose = require("mongoose");
 const Admission = require("../models/Admission");
 const Lead = require("../models/Lead");
 const User = require("../models/User");
-const { authRequired, attachUser, authorizeRoles } = require("../middleware/auth");
+const { authRequired, attachUser, authorizeRoles } = require("../middlewares/auth");
 const { logActivity } = require("../utils/logActivity");
 
 const router = express.Router();

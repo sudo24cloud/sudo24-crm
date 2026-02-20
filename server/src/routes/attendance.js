@@ -3,7 +3,7 @@ const express = require("express");
 const Attendance = require("../models/Attendance");
 const EmployeePolicy = require("../models/EmployeePolicy");
 const User = require("../models/User");
-const { authRequired, attachUser, authorizeRoles } = require("../middleware/auth");
+const { authRequired, attachUser, authorizeRoles } = require("../middlewares/auth");
 
 const router = express.Router();
 

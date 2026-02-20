@@ -1,11 +1,11 @@
 const PLAN_LIMITS = {
   free: {
-    maxUsers: 3,
-    maxLeads: 100
+    maxUsers: 30,
+    maxLeads: 10000
   },
   basic: {
-    maxUsers: 10,
-    maxLeads: 1000
+    maxUsers: 100,
+    maxLeads: 100000
   },
   pro: {
     maxUsers: Infinity,

@@ -1,6 +1,6 @@
 const express = require("express");
 const Lead = require("../models/Lead");
-const { authRequired, attachUser } = require("../middleware/auth");
+const { authRequired, attachUser } = require("../middlewares/auth");
 
 const router = express.Router();
 

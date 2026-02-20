@@ -5,7 +5,7 @@ const User = require("../models/User");
 const Company = require("../models/Company"); // ✅ NEW (limit enforcement)
 const Attendance = require("../models/Attendance");
 
-const { authRequired, attachUser, authorizeRoles } = require("../middleware/auth");
+const { authRequired, attachUser, authorizeRoles } = require("../middlewares/auth");
 
 const router = express.Router();
 
